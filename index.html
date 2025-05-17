@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vote</title>
+  <link rel="stylesheet" href="style-voting.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>🗳️ Vote for Your Favourite!</h1>
+    <ul id="nomineeList">
+      <!-- Nominees will be loaded here -->
+    </ul>
+  </div>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+  <!-- Firebase config -->
+  <script src="firebase.js"></script>
+
+  <!-- Voting logic -->
+  <script src="vote.js"></script>
+</body>
+</html>
