@@ -1,0 +1,96 @@
+/* VOTING PAGE STYLE */
+body {
+  margin: 0;
+  padding: 0;
+  background: #0d1117;
+  font-family: 'Segoe UI', sans-serif;
+  color: #f0f0f0;
+  overflow-x: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  padding: 40px 20px;
+}
+
+.container {
+  max-width: 650px;
+  margin: 60px auto;
+  background: #1c1f2b;
+  padding: 30px;
+  border-radius: 16px;
+  box-shadow: 0 0 30px rgba(70, 130, 180, 0.2);
+  border: 1px solid #2c3e50;
+  text-align: center;
+  position: relative;
+  z-index: 2;
+}
+
+h1 {
+  color: #87cefa;
+  font-size: 28px;
+  margin-bottom: 25px;
+  text-transform: uppercase;
+}
+
+#nomineeList {
+  list-style: none;
+  padding: 0;
+  margin: 0 auto 20px;
+  max-height: 350px;
+  overflow-y: auto;
+  width: 100%;
+}
+
+#nomineeList li {
+  background: #0e141f;
+  margin: 15px 0;
+  padding: 15px 20px;
+  border-radius: 12px;
+  border: 1px solid #2e3a59;
+  box-shadow: 0 0 15px rgba(173, 216, 230, 0.1);
+  font-weight: bold;
+  color: #e6e6e6;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1.05rem;
+}
+
+button.vote-btn {
+  padding: 10px 20px;
+  background: #87cefa;
+  border: none;
+  border-radius: 12px;
+  color: #1c1f2b;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.3s ease;
+  box-shadow: 0 0 15px rgba(135, 206, 250, 0.6);
+}
+
+button.vote-btn:hover:not(:disabled) {
+  background: #00bfff;
+  box-shadow: 0 0 20px rgba(0, 191, 255, 0.8);
+}
+
+button.vote-btn:disabled {
+  background: #444;
+  color: #888;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+::-webkit-scrollbar {
+  width: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1c1f2b;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #87cefa;
+  border-radius: 10px;
+}
