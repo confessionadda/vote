@@ -3,7 +3,7 @@ const gameName = 'crushgirls'; // <- CHANGE this for each game
 
 // Firebase setup
 const firebaseConfig = {
-  // Your Firebase configuration
+  // Your Firebase configuration here
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
@@ -11,11 +11,17 @@ const db = firebase.firestore();
 // Load FingerprintJS
 let fpPromise = FingerprintJS.load();
 
-// Get user's IP address
+// Get user's IP address safely with error handling
 async function getUserIP() {
-  const response = await fetch('https://api.ipify.org?format=json');
-  const data = await response.json();
-  return data.ip;
+  try {
+    const response = await fetch('https://api.ipify.org?format=json');
+    if (!response.ok) throw new Error('Failed to fetch IP');
+    const data = await response.json();
+    return data.ip;
+  } catch (e) {
+    console.warn('IP fetch failed, defaulting to unknown-ip');
+    return 'unknown-ip';
+  }
 }
 
 // Load nominees and check if user has already voted
@@ -24,25 +30,20 @@ async function loadNominees() {
   nomineeList.innerHTML = '<li>Loading nominees...</li>';
 
   try {
+    // Fetch IP and fingerprint simultaneously
     const [ip, fp] = await Promise.all([getUserIP(), fpPromise.then(fp => fp.get())]);
     const fingerprint = fp.visitorId;
 
-    // Check if the user has already voted for this game
-    const voteQuery = await db.collection('votes')
-      .where('game', '==', gameName)
-      .where('ip', '==', ip)
-      .get();
-
-    const fingerprintQuery = await db.collection('votes')
-      .where('game', '==', gameName)
-      .where('fingerprint', '==', fingerprint)
-      .get();
+    // Check if user has voted based on IP or fingerprint for this game
+    const [voteQuery, fingerprintQuery] = await Promise.all([
+      db.collection('votes').where('game', '==', gameName).where('ip', '==', ip).get(),
+      db.collection('votes').where('game', '==', gameName).where('fingerprint', '==', fingerprint).get()
+    ]);
 
     const hasVoted = !voteQuery.empty || !fingerprintQuery.empty;
 
-    const querySnapshot = await db.collection('nominations')
-      .where('game', '==', gameName)
-      .get();
+    // Get nominees for this game
+    const querySnapshot = await db.collection('nominations').where('game', '==', gameName).get();
 
     nomineeList.innerHTML = '';
 
@@ -51,11 +52,11 @@ async function loadNominees() {
       return;
     }
 
-    querySnapshot.forEach((doc) => {
+    // For each nominee, create list item and vote button
+    querySnapshot.forEach(doc => {
       const data = doc.data();
       const li = document.createElement('li');
-
-      li.textContent = `${data.username} (${data.year} - ${data.branch})`;
+      li.textContent = `${data.username} (${data.year} - ${data.branch}) `;
 
       const voteBtn = document.createElement('button');
       voteBtn.textContent = hasVoted ? 'Already Voted' : 'Vote';
@@ -71,7 +72,7 @@ async function loadNominees() {
     });
   } catch (error) {
     console.error("Error loading nominees:", error);
-    nomineeList.innerHTML = '<li>Error loading nominees. See console.</li>';
+    nomineeList.innerHTML = '<li>Error loading nominees. Please try again later.</li>';
   }
 }
 
@@ -81,15 +82,14 @@ async function voteForNominee(nomineeId, ip, fingerprint, voteBtn) {
   voteBtn.textContent = 'Submitting...';
 
   const nomineeRef = db.collection('nominations').doc(nomineeId);
-  const voteRef = db.collection('votes').doc(); // auto-id
+  const voteRef = db.collection('votes').doc(); // auto-generated id
 
   try {
     await db.runTransaction(async (transaction) => {
       const nomineeDoc = await transaction.get(nomineeRef);
       if (!nomineeDoc.exists) {
-        throw "Nominee does not exist!";
+        throw new Error("Nominee does not exist!");
       }
-
       const newVotes = (nomineeDoc.data().votes || 0) + 1;
       transaction.update(nomineeRef, { votes: newVotes });
 
@@ -112,10 +112,9 @@ async function voteForNominee(nomineeId, ip, fingerprint, voteBtn) {
   }
 }
 
-// Disable all vote buttons
+// Disable all vote buttons after vote
 function disableVoteButtons() {
-  const buttons = document.querySelectorAll('button.vote-btn');
-  buttons.forEach(btn => {
+  document.querySelectorAll('button.vote-btn').forEach(btn => {
     btn.disabled = true;
     btn.textContent = 'Already Voted';
     btn.style.backgroundColor = '#555';
@@ -123,5 +122,5 @@ function disableVoteButtons() {
   });
 }
 
-// Load nominees on window load
+// Run loadNominees on page load
 window.onload = loadNominees;
