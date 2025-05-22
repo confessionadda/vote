@@ -1,75 +1,118 @@
-function loadNominees() {
+// Your game name
+const gameName = 'crushgirls'; // <- CHANGE this for each game
+
+// Firebase setup
+const firebaseConfig = {
+  // Your Firebase configuration
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// Load FingerprintJS
+let fpPromise = FingerprintJS.load();
+
+// Get user's IP address
+async function getUserIP() {
+  const response = await fetch('https://api.ipify.org?format=json');
+  const data = await response.json();
+  return data.ip;
+}
+
+// Load nominees and check if user has already voted
+async function loadNominees() {
   const nomineeList = document.getElementById('nomineeList');
   nomineeList.innerHTML = '<li>Loading nominees...</li>';
 
-  db.collection('nominations').get()
-    .then((querySnapshot) => {
-      nomineeList.innerHTML = '';
+  try {
+    const [ip, fp] = await Promise.all([getUserIP(), fpPromise.then(fp => fp.get())]);
+    const fingerprint = fp.visitorId;
 
-      if (querySnapshot.empty) {
-        nomineeList.innerHTML = '<li>No nominees found.</li>';
-        return;
+    // Check if the user has already voted for this game
+    const voteQuery = await db.collection('votes')
+      .where('game', '==', gameName)
+      .where('ip', '==', ip)
+      .get();
+
+    const fingerprintQuery = await db.collection('votes')
+      .where('game', '==', gameName)
+      .where('fingerprint', '==', fingerprint)
+      .get();
+
+    const hasVoted = !voteQuery.empty || !fingerprintQuery.empty;
+
+    const querySnapshot = await db.collection('nominations')
+      .where('game', '==', gameName)
+      .get();
+
+    nomineeList.innerHTML = '';
+
+    if (querySnapshot.empty) {
+      nomineeList.innerHTML = '<li>No nominees found.</li>';
+      return;
+    }
+
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      const li = document.createElement('li');
+
+      li.textContent = `${data.username} (${data.year} - ${data.branch})`;
+
+      const voteBtn = document.createElement('button');
+      voteBtn.textContent = hasVoted ? 'Already Voted' : 'Vote';
+      voteBtn.classList.add('vote-btn');
+      voteBtn.disabled = hasVoted;
+
+      if (!hasVoted) {
+        voteBtn.onclick = () => voteForNominee(doc.id, ip, fingerprint, voteBtn);
       }
 
-      const hasVoted = localStorage.getItem('hasVoted');
-
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        const li = document.createElement('li');
-
-        li.textContent = `${data.username} (${data.year} - ${data.branch})`;
-
-        const voteBtn = document.createElement('button');
-        voteBtn.textContent = 'Vote';
-        voteBtn.classList.add('vote-btn');
-
-        if (hasVoted) {
-          voteBtn.disabled = true;
-          voteBtn.textContent = 'Already Voted';
-          voteBtn.style.backgroundColor = '#555';
-          voteBtn.style.cursor = 'not-allowed';
-        } else {
-          voteBtn.onclick = () => voteForNominee(doc.id);
-        }
-
-        li.appendChild(voteBtn);
-        nomineeList.appendChild(li);
-      });
-    })
-    .catch((error) => {
-      console.error("Error loading nominees:", error);
-      nomineeList.innerHTML = '<li>Error loading nominees. See console.</li>';
+      li.appendChild(voteBtn);
+      nomineeList.appendChild(li);
     });
+  } catch (error) {
+    console.error("Error loading nominees:", error);
+    nomineeList.innerHTML = '<li>Error loading nominees. See console.</li>';
+  }
 }
 
-function voteForNominee(nomineeId) {
-  const nomineeRef = db.collection('nominations').doc(nomineeId);
+// Vote for a nominee
+async function voteForNominee(nomineeId, ip, fingerprint, voteBtn) {
+  voteBtn.disabled = true;
+  voteBtn.textContent = 'Submitting...';
 
-  db.runTransaction((transaction) => {
-    return transaction.get(nomineeRef).then((doc) => {
-      if (!doc.exists) {
+  const nomineeRef = db.collection('nominations').doc(nomineeId);
+  const voteRef = db.collection('votes').doc(); // auto-id
+
+  try {
+    await db.runTransaction(async (transaction) => {
+      const nomineeDoc = await transaction.get(nomineeRef);
+      if (!nomineeDoc.exists) {
         throw "Nominee does not exist!";
       }
-      let newVotes = (doc.data().votes || 0) + 1;
+
+      const newVotes = (nomineeDoc.data().votes || 0) + 1;
       transaction.update(nomineeRef, { votes: newVotes });
-      return newVotes;
+
+      transaction.set(voteRef, {
+        game: gameName,
+        nomineeId,
+        ip,
+        fingerprint,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      });
     });
-  })
-  .then((newVotes) => {
-    alert(`Thank you for voting! This nominee now has ${newVotes} votes.`);
 
-    // Mark as voted in localStorage
-    localStorage.setItem('hasVoted', 'true');
-
-    // Disable all vote buttons now
+    alert('Thank you for voting!');
     disableVoteButtons();
-  })
-  .catch((error) => {
+  } catch (error) {
     console.error("Voting failed: ", error);
     alert("Error while voting. Please try again.");
-  });
+    voteBtn.disabled = false;
+    voteBtn.textContent = 'Vote';
+  }
 }
 
+// Disable all vote buttons
 function disableVoteButtons() {
   const buttons = document.querySelectorAll('button.vote-btn');
   buttons.forEach(btn => {
@@ -80,4 +123,5 @@ function disableVoteButtons() {
   });
 }
 
+// Load nominees on window load
 window.onload = loadNominees;
